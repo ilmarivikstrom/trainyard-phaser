@@ -216,7 +216,7 @@ class MainScene extends Phaser.Scene {
 
 const sizes = {
   width: 640,
-  height: 360
+  height: 640
 };
 
 const speedConfig = {
