@@ -21,17 +21,13 @@ import { Train } from "./Train";
 
 
 class MainScene extends Phaser.Scene {
-  private grid: Phaser.GameObjects.Grid;
   private tracks: Track[] = [];
-  private train0: Train;
   private train1: Train;
   private light: Phaser.GameObjects.Light;
   private speedUpKey: Phaser.Input.Keyboard.Key;
   private speedDownKey: Phaser.Input.Keyboard.Key;
   private speedModifier: integer;
-  private placementBlocks: Phaser.Math.Vector2[] = [];
-  private placementStartingGridLocation: Phaser.Math.Vector2 | null = null;
-  private placementIntermediateGridLocation: Phaser.Math.Vector2 | null = null;
+  private placementSlots: Phaser.Math.Vector2[] = [];
   private pointerDown: boolean = false;
   constructor() {
     super('MainScene');
@@ -61,101 +57,98 @@ class MainScene extends Phaser.Scene {
     );
   }
 
-  handlePointerMove() {
+  determineTrackPlacement(pointer: Phaser.Input.Pointer): void {
+    if (!this.pointerDown) {
+      this.placementSlots = [];
+      return;
+    }
+
+    let i = Math.floor(pointer.x / 64);
+    let j = Math.floor(pointer.y / 64);
+
+    let currentPointerLocation = new Phaser.Math.Vector2(i, j);
+
+    if (this.placementSlots.length == 0) {
+      this.placementSlots.push(currentPointerLocation);
+      return;
+    }
+
+    if (this.placementSlots.length == 1) {
+      if (this.placementSlots[0].distance(currentPointerLocation) != 1) {
+        this.placementSlots[0] = currentPointerLocation;
+        return;
+      }
+      this.placementSlots.push(currentPointerLocation);
+      return;
+    }
+
+    if (this.placementSlots.length == 2) {
+      if (this.placementSlots[0].distance(currentPointerLocation) == 0) {
+        this.placementSlots[0] = this.placementSlots[1];
+        this.placementSlots.pop();
+        return;
+      }
+      if (this.placementSlots[1].distance(currentPointerLocation) == 1) {
+        if (this.placementSlots[0].x != currentPointerLocation.x && this.placementSlots[0].y == currentPointerLocation.y) {
+          const track = new TrackHorizontal(this, this.placementSlots[1].x, this.placementSlots[1].y);
+          this.tracks.push(track);
+        } else if (this.placementSlots[0].x == currentPointerLocation.x && this.placementSlots[0].y != currentPointerLocation.y) {
+          const track = new TrackVertical(this, this.placementSlots[1].x, this.placementSlots[1].y);
+          this.tracks.push(track);
+        } else if (this.placementSlots[0].x < currentPointerLocation.x && this.placementSlots[0].y < currentPointerLocation.y) {
+          if (this.placementSlots[0].x < this.placementSlots[1].x) {
+            const track = new TrackCurved(this, this.placementSlots[1].x, this.placementSlots[1].y, 90);
+            this.tracks.push(track);
+          } else {
+            const track = new TrackCurved(this, this.placementSlots[1].x, this.placementSlots[1].y, 270);
+            this.tracks.push(track);
+          }
+        } else if (this.placementSlots[0].x > currentPointerLocation.x && this.placementSlots[0].y < currentPointerLocation.y) {
+          if (this.placementSlots[0].x > this.placementSlots[1].x) {
+            const track = new TrackCurved(this, this.placementSlots[1].x, this.placementSlots[1].y, 0);
+            this.tracks.push(track);
+          } else {
+            const track = new TrackCurved(this, this.placementSlots[1].x, this.placementSlots[1].y, 180);
+            this.tracks.push(track);
+          }
+        } else if (this.placementSlots[0].x < currentPointerLocation.x && this.placementSlots[0].y > currentPointerLocation.y) {
+          if (this.placementSlots[0].x < this.placementSlots[1].x) {
+            const track = new TrackCurved(this, this.placementSlots[1].x, this.placementSlots[1].y, 180);
+            this.tracks.push(track);
+          } else {
+            const track = new TrackCurved(this, this.placementSlots[1].x, this.placementSlots[1].y, 0);
+            this.tracks.push(track);
+          }
+        } else if (this.placementSlots[0].x > currentPointerLocation.x && this.placementSlots[0].y > currentPointerLocation.y) {
+          if (this.placementSlots[0].x > this.placementSlots[1].x) {
+            const track = new TrackCurved(this, this.placementSlots[1].x, this.placementSlots[1].y, 270);
+            this.tracks.push(track);
+          } else {
+            const track = new TrackCurved(this, this.placementSlots[1].x, this.placementSlots[1].y, 90);
+            this.tracks.push(track);
+          }
+        }
+        this.placementSlots.reverse();
+        this.placementSlots.pop();
+        this.placementSlots.reverse();
+      }
+    }
+  }
+
+  handlePointerMove(): void {
     this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
       this.light.x = pointer.x;
       this.light.y = pointer.y;
-      let i = Math.floor(pointer.x / 64);
-      let j = Math.floor(pointer.y / 64);
 
-      if (!this.pointerDown) {
-        this.placementBlocks = [];
-        return;
-      }
-
-      let currentPointerLocation = new Phaser.Math.Vector2(i, j);
-
-      if (this.placementBlocks.length == 0) {
-        this.placementBlocks.push(currentPointerLocation);
-        return;
-      }
-
-      if (this.placementBlocks.length == 1) {
-        if (this.placementBlocks[0].distance(currentPointerLocation) != 1) {
-          this.placementBlocks[0] = currentPointerLocation;
-          return;
-        }
-        this.placementBlocks.push(currentPointerLocation);
-        return;
-      }
-
-      if (this.placementBlocks.length == 2) {
-        if (this.placementBlocks[0].distance(currentPointerLocation) == 0) {
-          this.placementBlocks[0] = this.placementBlocks[1];
-          this.placementBlocks.pop();
-          return;
-        }
-        if (this.placementBlocks[1].distance(currentPointerLocation) == 1) {
-          if (this.placementBlocks[0].x != currentPointerLocation.x && this.placementBlocks[0].y == currentPointerLocation.y) {
-            console.log("Should place H to: (", this.placementBlocks[1].x, ",", this.placementBlocks[1].y, ") !");
-            const track = new TrackHorizontal(this, this.placementBlocks[1].x, this.placementBlocks[1].y);
-            this.tracks.push(track);
-          } else if (this.placementBlocks[0].x == currentPointerLocation.x && this.placementBlocks[0].y != currentPointerLocation.y) {
-            console.log("Should place V to: (", this.placementBlocks[1].x, ",", this.placementBlocks[1].y, ") !");
-            const track = new TrackVertical(this, this.placementBlocks[1].x, this.placementBlocks[1].y);
-            this.tracks.push(track);
-          } else if (this.placementBlocks[0].x < currentPointerLocation.x && this.placementBlocks[0].y < currentPointerLocation.y) {
-            if (this.placementBlocks[0].x < this.placementBlocks[1].x) {
-              console.log("Should place LEFT-DOWN");
-              const track = new TrackCurved(this, this.placementBlocks[1].x, this.placementBlocks[1].y, 90);
-              this.tracks.push(track);
-            } else {
-              console.log("Should place UP-RIGHT");
-              const track = new TrackCurved(this, this.placementBlocks[1].x, this.placementBlocks[1].y, 270);
-              this.tracks.push(track);
-            }
-          } else if (this.placementBlocks[0].x > currentPointerLocation.x && this.placementBlocks[0].y < currentPointerLocation.y) {
-            if (this.placementBlocks[0].x > this.placementBlocks[1].x) {
-              console.log("Should place RIGHT-DOWN");
-              const track = new TrackCurved(this, this.placementBlocks[1].x, this.placementBlocks[1].y, 0);
-              this.tracks.push(track);
-            } else {
-              console.log("Should place UP-LEFT");
-              const track = new TrackCurved(this, this.placementBlocks[1].x, this.placementBlocks[1].y, 180);
-              this.tracks.push(track);
-            }
-          } else if (this.placementBlocks[0].x < currentPointerLocation.x && this.placementBlocks[0].y > currentPointerLocation.y) {
-            if (this.placementBlocks[0].x < this.placementBlocks[1].x) {
-              console.log("Should place LEFT-UP");
-              const track = new TrackCurved(this, this.placementBlocks[1].x, this.placementBlocks[1].y, 180);
-              this.tracks.push(track);
-            } else {
-              console.log("Should place DOWN-RIGHT")
-              const track = new TrackCurved(this, this.placementBlocks[1].x, this.placementBlocks[1].y, 0);
-              this.tracks.push(track);
-            }
-          } else if (this.placementBlocks[0].x > currentPointerLocation.x && this.placementBlocks[0].y > currentPointerLocation.y) {
-            if (this.placementBlocks[0].x > this.placementBlocks[1].x) {
-              console.log("Should place RIGHT-UP");
-              const track = new TrackCurved(this, this.placementBlocks[1].x, this.placementBlocks[1].y, 270);
-              this.tracks.push(track);
-            } else {
-              console.log("Should place DOWN-LEFT")
-              const track = new TrackCurved(this, this.placementBlocks[1].x, this.placementBlocks[1].y, 90);
-              this.tracks.push(track);
-            }
-          }
-          this.placementBlocks.reverse();
-          this.placementBlocks.pop();
-          this.placementBlocks.reverse();
-        }
-      }
+      this.determineTrackPlacement(pointer)
 
     });
   }
 
-  create() {
-    this.add.grid(0, 0, sizes.width * 2, sizes.height * 2, 64, 64, 0x555555, 0.2, 0x222222, 0.2);
+  create(): void {
+    let grid = new Phaser.GameObjects.Grid(this, 0, 0, sizes.width * 2, sizes.height * 2, 64, 64, 0x777777, 0.2, 0x111111, 0.2);
+    grid.addToDisplayList();
+    // this.add.grid(0, 0, sizes.width * 2, sizes.height * 2, 64, 64, 0x777777, 0.2, 0x111111, 0.2);
 
     this.speedModifier = 3;
 
@@ -188,8 +181,7 @@ class MainScene extends Phaser.Scene {
 
     this.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
       this.pointerDown = false;
-      this.placementIntermediateGridLocation = null;
-      this.placementStartingGridLocation = null;
+      this.placementSlots = [];
     });
 
     this.handlePointerMove();
@@ -200,11 +192,11 @@ class MainScene extends Phaser.Scene {
     }
 
     // this.train0 = new Train(this, 320, 320, 0)
-    this.train1 = new Train(this, 32, 352, 0)
+    this.train1 = new Train(this, 1, 5, 0)
 
   }
 
-  update() {
+  update(): void {
     // Phaser.Actions.RotateAroundDistance([this.train0], { x: 320 + 32, y: 320 + 32 }, this.speedModifier * -Math.PI / (2 * 64), 32);
     // this.train0.angle += this.speedModifier * -180 / (2 * 64);
     this.train1.x += this.speedModifier * 1;
