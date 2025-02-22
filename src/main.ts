@@ -1,21 +1,4 @@
-// const track = this.add.image(320, 320, 'track_c').setPipeline("Light2D");;
-// track.setAngle(180);
-// this.tracks.push(track);
-
-// const track1 = this.add.image(320, 256, 'track_c').setPipeline("Light2D");;
-// track1.setAngle(90);
-// this.tracks.push(track1);
-
-// const track2 = this.add.image(256, 256, 'track_c').setPipeline("Light2D");;
-// track2.setAngle(0);
-// this.tracks.push(track2);
-
-// const track3 = this.add.image(256, 320, 'track_c').setPipeline("Light2D");;
-// track3.setAngle(270);
-// this.tracks.push(track3);
-
-
-import Phaser, { Tilemaps } from 'phaser';
+import Phaser from 'phaser';
 import { Track, TrackHorizontal, TrackVertical, TrackCurved } from "./Track";
 import { Train } from "./Train";
 
@@ -26,14 +9,18 @@ class MainScene extends Phaser.Scene {
   private light: Phaser.GameObjects.Light;
   private speedUpKey: Phaser.Input.Keyboard.Key;
   private speedDownKey: Phaser.Input.Keyboard.Key;
-  private speedModifier: integer = 1;
+  private deleteModeKey: Phaser.Input.Keyboard.Key;
+  private speedModifier: number;
+  private globalTrainSpeed: integer;
   private placementSlots: Phaser.Math.Vector2[] = [];
-  private pointerDown: boolean = false;
-  constructor() {
+  private pointerDown = false;
+  private timeDisplay: Phaser.GameObjects.Text;
+  private speedDisplay: Phaser.GameObjects.Text;
+  public constructor() {
     super('MainScene');
   }
 
-  preload() {
+  public preload(): void {
     this.load.image(
       {
         key: "train",
@@ -57,16 +44,16 @@ class MainScene extends Phaser.Scene {
     );
   }
 
-  determineTrackPlacement(pointer: Phaser.Input.Pointer): void {
+  private determineTrackPlacement(pointer: Phaser.Input.Pointer): void {
     if (!this.pointerDown) {
       this.placementSlots = [];
       return;
     }
 
-    let i = Math.floor(pointer.x / 64);
-    let j = Math.floor(pointer.y / 64);
+    const i = Math.floor(pointer.x / sizes.tile);
+    const j = Math.floor(pointer.y / sizes.tile);
 
-    let currentPointerLocation = new Phaser.Math.Vector2(i, j);
+    const currentPointerLocation = new Phaser.Math.Vector2(i, j);
 
     if (this.placementSlots.length == 0) {
       this.placementSlots.push(currentPointerLocation);
@@ -135,89 +122,152 @@ class MainScene extends Phaser.Scene {
     }
   }
 
-  handlePointerMove(): void {
+  private handlePointerMove(): void {
     this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
       this.light.x = pointer.x;
       this.light.y = pointer.y;
 
-      this.determineTrackPlacement(pointer)
+      this.determineTrackPlacement(pointer);
 
     });
   }
 
-  create(): void {
-    let grid = new Phaser.GameObjects.Grid(this, 0, 0, sizes.width * 2, sizes.height * 2, 64, 64, 0x777777, 0.2, 0x111111, 0.2);
-    grid.addToDisplayList();
+  private updateSpeed(): void {
+    this.globalTrainSpeed = this.speedModifier * 128 / 1000;
+  }
+
+  private addTimeDisplay(): void {
+    this.timeDisplay = this.add.text(24, 24, "", {backgroundColor: "#222222"});
+    this.timeDisplay.setDepth(3);
+  }
+
+  private addSpeedDisplay(): void {
+    this.speedDisplay = this.add.text(24, 48, "", {backgroundColor: "#222222"});
+    this.speedDisplay.setDepth(3);
+  }
+
+  private setupControls(): void {
+    if (this.input.keyboard == null) {
+      throw new Error("Keyboard not found!");
+    }
 
     this.speedUpKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
     this.speedDownKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
 
-    this.speedUpKey.on("down", (event) => {
+    this.speedUpKey.on("down", () => {
       this.speedModifier += speedConfig.step;
       if (this.speedModifier > speedConfig.max) {
         this.speedModifier = speedConfig.max;
       }
+      this.updateSpeed();
       console.log("speedup: ", this.speedModifier);
     });
 
-    this.speedDownKey.on("down", (event) => {
+    this.speedDownKey.on("down", () => {
       this.speedModifier -= speedConfig.step;
       if (this.speedModifier < speedConfig.min) {
         this.speedModifier = speedConfig.min;
       }
+      this.updateSpeed();
       console.log("speeddown: ", this.speedModifier);
     });
 
-
-    this.light = this.lights.addLight(280, 280, 256, 0x665555, 2);
-    this.lights.enable().setAmbientColor(0x666666);
-
-    this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+    this.input.on("pointerdown", () => {
       this.pointerDown = true;
     });
 
-    this.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
+    this.input.on("pointerup", () => {
       this.pointerDown = false;
       this.placementSlots = [];
     });
 
+  }
+
+
+  private addVisualGrid(): void {
+    const visualGrid = new Phaser.GameObjects.Grid(this, 0, 0, config.width * 2, config.height * 2, sizes.tile, sizes.tile, 0x777777, 0.2, 0x111111, 0.2);
+    visualGrid.addToDisplayList();
+  }
+
+
+  private setupPointerLight(): void {
+    const pointerLight = {
+      x: 280,
+      y: 280,
+      radius: 256,
+      rgb: 0x665555,
+      intensity: 2,
+    };
+
+    this.light = this.lights.addLight(pointerLight.x, pointerLight.y, pointerLight.radius, pointerLight.rgb, pointerLight.intensity);
+    this.lights.enable().setAmbientColor(0x666666);
+  }
+
+
+  public create(): void {
+    this.speedModifier = speedConfig.default;
+    this.updateSpeed();
+
+    this.addTimeDisplay();
+    this.addSpeedDisplay();
+
+    this.addVisualGrid();
+
+    this.setupControls();
+
+    this.setupPointerLight();
+
     this.handlePointerMove();
 
-    for (let x = 0; x <= config.width / 64; x++) {
+    for (let x = 0; x <= config.width / sizes.tile; x++) {
       const track = new TrackHorizontal(this, x, 5);
       this.tracks.push(track);
     }
 
-    // this.train0 = new Train(this, 320, 320, 0)
-    this.train1 = new Train(this, 1, 5, 0)
+    this.train1 = new Train(this, 1, 5, 0);
 
   }
 
-  update(): void {
-    // Phaser.Actions.RotateAroundDistance([this.train0], { x: 320 + 32, y: 320 + 32 }, this.speedModifier * -Math.PI / (2 * 64), 32);
-    // this.train0.angle += this.speedModifier * -180 / (2 * 64);
-    this.train1.x += this.speedModifier * 1;
+  private moveTrains(dt: number): void {
+    this.train1.x += this.globalTrainSpeed * dt;
     if (this.train1.x > config.width) {
       this.train1.x -= config.width;
     }
   }
-}
 
-const sizes = {
-  width: 640,
-  height: 640
-};
+  private updateTimeDisplay(timestep: number): void {
+    this.timeDisplay.setText("Time: " + (timestep / 1000).toFixed(2) + "s");
+  }
+
+  private updateSpeedDisplay(): void {
+    this.speedDisplay.setText("Speed: " + this.speedModifier.toString() + "/" + speedConfig.max.toString());
+  }
+
+  public update(timestep: number, dt: number): void {
+    // Phaser.Actions.RotateAroundDistance([this.train0], { x: 320 + 32, y: 320 + 32 }, this.speedModifier * -Math.PI / (2 * 64), 32);
+    // this.train0.angle += this.speedModifier * -180 / (2 * 64);
+    this.moveTrains(dt);
+    this.updateTimeDisplay(timestep);
+    this.updateSpeedDisplay();
+  }
+}
 
 const speedConfig = {
   min: 0,
-  max: 5,
-  step: 0.5,
+  max: 10,
+  step: 1,
+  default: 1,
 };
+
+const sizes = {
+  tile: 64,
+};
+
 
 const config = {
   type: Phaser.WEBGL,
-  width: sizes.width,
-  height: sizes.height,
+  width: sizes.tile * 10,
+  height: sizes.tile * 10,
   backgroundColor: "#00001C",
   canvas: gameCanvas,
   physics: {

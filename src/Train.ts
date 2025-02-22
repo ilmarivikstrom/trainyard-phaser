@@ -1,11 +1,5 @@
 import Phaser from "phaser";
 
-enum Direction {
-    Right = 0,
-    Up = 1,
-    Left = 2,
-    Down = 3,
-}
 
 export class Train extends Phaser.GameObjects.Image {
     constructor(scene: Phaser.Scene, i: number, j: number, angle: number) {

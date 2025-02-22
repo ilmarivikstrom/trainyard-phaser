@@ -3,9 +3,13 @@ import Phaser from "phaser";
 
 export class Track extends Phaser.GameObjects.Image {
     public endpoints: Phaser.Geom.Point[] = [];
+    public i: number;
+    public j: number;
 
     constructor(scene: Phaser.Scene, i: number, j: number, sprite: string, angle: number) {
         super(scene, i * 64 + 32, j * 64 + 32, sprite, 0);
+        this.i = i;
+        this.j = j;
         this.setPipeline("Light2D");
         this.setAngle(angle);
         scene.add.existing(this);
