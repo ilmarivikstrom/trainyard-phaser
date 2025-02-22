@@ -26,7 +26,7 @@ class MainScene extends Phaser.Scene {
   private light: Phaser.GameObjects.Light;
   private speedUpKey: Phaser.Input.Keyboard.Key;
   private speedDownKey: Phaser.Input.Keyboard.Key;
-  private speedModifier: integer;
+  private speedModifier: integer = 1;
   private placementSlots: Phaser.Math.Vector2[] = [];
   private pointerDown: boolean = false;
   constructor() {
@@ -148,9 +148,6 @@ class MainScene extends Phaser.Scene {
   create(): void {
     let grid = new Phaser.GameObjects.Grid(this, 0, 0, sizes.width * 2, sizes.height * 2, 64, 64, 0x777777, 0.2, 0x111111, 0.2);
     grid.addToDisplayList();
-    // this.add.grid(0, 0, sizes.width * 2, sizes.height * 2, 64, 64, 0x777777, 0.2, 0x111111, 0.2);
-
-    this.speedModifier = 3;
 
     this.speedUpKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
     this.speedDownKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
